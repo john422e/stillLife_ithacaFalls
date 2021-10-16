@@ -98,7 +98,7 @@ SinOsc s => Envelope e => LPF f => Gain g => dac;
 OscIn in;
 OscMsg msg;
 10001 => in.port;
-in.listenAll;
+in.listenAll();
 
 // initialize sound settings
 1.0 => g.gain;
