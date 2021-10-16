@@ -165,6 +165,7 @@ fun void get_reading() {
 			// ultrasonic sensor distance
 			if( msg.address == "/distance" ) {
 				msg.getFloat(0) => dist;
+				<<< "distance", dist >>>;
 				// turn on sound if value below thresh and get tone
 				if( dist < thresh && dist > 0.0 ) {
 					// <<< "sound on" >>>;
