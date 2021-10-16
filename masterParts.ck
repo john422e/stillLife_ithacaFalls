@@ -149,12 +149,12 @@ fun float normalize( float inVal, float x1, float x2 ) {
 }
 
 fun void freqChange( float newFreq ) {
-	e.keyOff(); // synth off
-	0.5::second => now;
+	//e.keyOff(); // synth off
+	//0.5::second => now;
 	if( newFreq <= spkrThresh ) newFreq*2 => newFreq; // keep this octave transposer for low notes?
 	newFreq => s.freq; // set new freq
-	0.5::second => now;
-	e.keyOn(); // turn on
+	//0.5::second => now;
+	//e.keyOn(); // turn on
 }
 
 fun void get_reading() {
