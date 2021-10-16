@@ -158,14 +158,14 @@ fun void freqChange( float newFreq ) {
 }
 
 fun void get_reading() {
-	while( second_i < pieceLength - 30 ) {
+	while( second_i < pieceLength ) {
 		// check for osc messages
 		in => now;
 		while( in.recv(msg) ) {
 			// ultrasonic sensor distance
 			if( msg.address == "/distance" ) {
 				msg.getFloat(0) => dist;
-				<<< "distance", dist >>>;
+				<<< "/distance", dist >>>;
 				// turn on sound if value below thresh and get tone
 				if( dist < thresh && dist > 0.0 ) {
 					// <<< "sound on" >>>;
@@ -225,6 +225,7 @@ for( 0 => int i; i < countDown; i++ ) {
 // MAIN PROGRAM ---------------------------------------------------
 
 spork ~ get_reading(); // start sensor listener
+<<< "STARTING FORM" >>>;
 
 // loop for whole piece
 while( second_i < pieceLength ) {
