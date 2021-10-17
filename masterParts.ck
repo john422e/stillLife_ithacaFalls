@@ -26,7 +26,7 @@ SET THE DESIRED ARRAY TO 'freqs' on line 86
 
 // VIOLA
 // [times, freqs] (includes 3 seconds of silence at the beginning of every section)
-[ 
+[
 [0.0, 0.0],                                      // beginning
 [30.0, 0.0], [33.0, 153.88], [80.0, 153.92],     // 1
 [105.0, 0.0], [108.0, 154.8], [117.5, 154.72],   // 2
@@ -47,7 +47,7 @@ SET THE DESIRED ARRAY TO 'freqs' on line 86
 
 // CLARINET
 // [times, freqs] (includes 3 seconds of silence at the beginning of every section)
-[ 
+[
 [0.0, 0.0],                                      // beginning
 [30.0, 0.0], [33.0, 223.92], [80.0, 224.08],     // 1
 [105.0, 0.0], [108.0, 199.2], [117.5, 199.54],   // 2
@@ -68,7 +68,7 @@ SET THE DESIRED ARRAY TO 'freqs' on line 86
 
 // CELLO
 // [times, freqs] (includes 3 seconds of silence at the beginning of every section)
-[ 
+[
 [0.0, 0.0],                                      // beginning
 [30.0, 0.0], [33.0, 74.56], [42.5, 75.36],       // 1
 [105.0, 0.0], [108.0, 148.92], [130.0, 149.2],   // 2
@@ -188,9 +188,9 @@ fun void get_reading() {
 
 // FOR REHEARSAL -- START AT SECTION NUMBERS ------------------------
 // adjust starting position if command line argument present
-// user provides section number: 
+// user provides section number:
 [1.0, 2.0, 3.0, 4.0,  5.0,  6.0,  6.5, 7.0,  8.0,  9.0,  10.0, 11.0, 12.0] @=> float sectionLabels[];
-// corresponding event indexes: 
+// corresponding event indexes:
 [1,   4,   7,   10,   13,   16,   19,  20,   23,   26,   29,   32,   35] @=> int sectionIndexes[];
 Std.atoi(me.arg(0)) => float userSection;
 if( userSection > 12 ) userSection / 10 => userSection; // stupid trick to get 6.5 from '65'
@@ -204,7 +204,7 @@ for( 0 => int i; i < sectionLabels.cap(); i++) {
 }
 <<< "EVENT LOOKUP:", eventLookup >>>;
 
-if( eventLookup >= 0 ) { 
+if( eventLookup >= 0 ) {
 	eventLookup => eventIndex; // set correct eventIndex
 	freqs[eventIndex][0] => second_i; // set correct time
 	<<< "start at time:", second_i, "event:", eventIndex >>>;
@@ -234,15 +234,17 @@ while( second_i < pieceLength ) {
 	//<<< eventIndex, freqs.cap() >>>;
     second_i / 60 => displayMinute;
     second_i % 60 => displaySecond;
-    <<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
+		if( displaySecond % 15 == 0) {
+			<<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
+			}
 
     if( second_i == freqs[eventIndex][0] ) { // check for matching timeVal
         // set new freq
         freqs[eventIndex][1] => freq;
-		spork ~ freqChange(freq);       
+		spork ~ freqChange(freq);
         1 +=> eventIndex; // increment eventIndex, do this last
     }
-    
+
     // increment time, do this last
     timeLapse +=> second_i;
     (timeLapse/rate)::second => now;
