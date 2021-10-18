@@ -193,6 +193,7 @@ fun void get_osc() {
 		while( in.recv(msg) ) {
 			// start piece
 			if( msg.address == "/beginPiece" ) {
+				<<< "BEGINNING CUED" >>>;
 				// assign part
 				msg.getInt(0) => int partNum;
 				allParts[partNum] @=> freqs; //freqs[][]; ??????
@@ -224,16 +225,16 @@ fun void get_osc() {
 }
 
 fun void main () {
-	
+
 	<<< "EVENT LOOKUP:", eventLookup >>>;
-	
+
 	if( eventLookup >= 0 ) {
 		eventLookup => eventIndex; // set correct eventIndex
 		freqs[eventIndex][0] => second_i; // set correct time
 		<<< "start at time:", second_i, "event:", eventIndex >>>;
 	}
 	else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
-	
+
 
 	// STARTUP SOUND ---------------------------------------------------
 	0.2 => s.gain;
@@ -247,17 +248,17 @@ fun void main () {
 	}
 	1.0 => s.gain;
 	0.5 => e.time;
-	
+
 	// MAIN PROGRAM ---------------------------------------------------
-	
+
 	<<< "STARTING FORM" >>>;
-	
+
 	// loop for whole piece
 	while( second_i < pieceLength ) {
 		//<<< eventIndex, freqs.cap() >>>;
 		second_i / 60 => displayMinute;
 		second_i % 60 => displaySecond;
-		
+
 		if( second_i == freqs[eventIndex][0] ) { // check for matching timeVal
 			<<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
 			// set new freq
@@ -265,8 +266,8 @@ fun void main () {
 			spork ~ freqChange(freq);
 			1 +=> eventIndex; // increment eventIndex, do this last
 		}
-		
-		
+
+
 		// increment time, do this last
 		timeLapse +=> second_i;
 		(timeLapse/rate)::second => now;

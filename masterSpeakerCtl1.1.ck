@@ -189,7 +189,7 @@ for( 0 => int i; i < stereoGains.cap(); i++ ) {
 
 
 int channel;
-
+/*
 // setup soundchains
 // stereo
 for( 0 => int i; i < 5; i++ ) {
@@ -227,8 +227,10 @@ for( 0 => int i; i < 5; i++ ) {
 		stereoFilenames[i] => stereoBufs[i].read;
 	}
 }
+*/
 
 // temp vars
+int eventIndex;
 int checkIndex;
 float spkrState;
 int pulseChoice;
@@ -301,8 +303,9 @@ for( 0 => int i; i < sectionLabels.cap(); i++) {
 if( eventLookup >= 0 ) {
 	// CHECK IF THIS WORKS!!!
 	<<< "DID I WORK?" >>>;
-	eventLookup => eventIndex; // set correct eventIndex
-	freqs[eventIndex][0] => second_i; // set correct time
+	for(0 => int i; i < 4; i++ ) eventLookup => eventIndexes[i];
+	allEvents[0][eventLookup][0] => second_i;
+	//freqs[eventIndex][0] => second_i; // set correct time
 	<<< "start at time:", second_i, "event:", eventIndex >>>;
 }
 else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
@@ -313,10 +316,10 @@ else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
 "pitwo.local",
 "pithree.local",
 "pifour.local"
-] @=> string HOSTNAMES;
-4 => NUM_PIS;
+] @=> string HOSTNAMES[];
+4 => int NUM_PIS;
 10001 => int OUT_PORT;
-"/beginPiece" => string ADDRESS
+"/beginPiece" => string ADDRESS;
 // osc out to pis
 OscOut out[NUM_PIS];
 
@@ -332,6 +335,8 @@ for(0 => int i; i < NUM_PIS; i++) {
 	// "/beginPiece <0,1,2,3> eventLookup"
 }
 5::second => now; // startup
+
+/*
 // start with field 5 on
 stereoEnvs[4].keyOn();
 
@@ -419,6 +424,9 @@ while( second_i < pieceLength ) {
     timeLapse +=> second_i;
     (timeLapse/rate)::second => now;
 }
+*/
+
+
 
 /*
 // MAIN PROGRAM LOOP
@@ -476,4 +484,4 @@ while( masterTick < pieceLength+1 ) {
     timeLapse +=> masterTick;
     timeLapse::second => now;
 }
-*
+*/
