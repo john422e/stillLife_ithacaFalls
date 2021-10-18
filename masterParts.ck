@@ -277,3 +277,4 @@ fun void main () {
 
 // this will trigger everything when /beginPiece comes in from masterSpeakerCtl.ck
 spork ~ get_osc(); // start sensor listener
+1080::second => now;
