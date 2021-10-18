@@ -87,7 +87,45 @@ SET THE DESIRED ARRAY TO 'freqs' on line 86
 [1080.0, 0.0]                                    // end
 ] @=> float freqs4[][];
 
-freqs1 @=> float freqs[][];
+[freqs1, freqs2, freqs3, freqs4] @=> float allParts[][][];
+float freqs[][];
+
+// -------------------------------------------------------
+
+// master time vars
+0.5 => float timeLapse; // advance time by 0.5 seconds
+0.0 => float second_i; // current time value
+1.0 => float rate; // 1 = real time, higher vals to speed up for testing
+1080 => float pieceLength;
+0 => int eventIndex;
+float displayMinute;
+float displaySecond;
+5 => int countDown; // startup sound
+
+// FOR REHEARSAL -- START AT SECTION NUMBERS ------------------------
+// adjust starting position if command line argument present
+// user provides section number:
+[1.0, 2.0, 3.0, 4.0,  5.0,  6.0,  6.5, 7.0,  8.0,  9.0,  10.0, 11.0, 12.0] @=> float sectionLabels[];
+// corresponding event indexes:
+[1,   4,   7,   10,   13,   16,   19,  20,   23,   26,   29,   32,   35] @=> int sectionIndexes[];
+Std.atoi(me.arg(0)) => float userSection;
+if( userSection > 12 ) userSection / 10 => userSection; // stupid trick to get 6.5 from '65'
+<<< "USER ENTERED:", userSection >>>;
+// lookup sectionLabel
+-1 => int eventLookup;
+1 => int searching;
+for( 0 => int i; i < sectionLabels.cap(); i++) {
+	if( userSection == sectionLabels[i] ) sectionIndexes[i] => eventLookup;
+	//<<< userSection, sectionLabels[i], userSection == sectionLabels[i] >>>;
+}
+<<< "EVENT LOOKUP:", eventLookup >>>;
+
+if( eventLookup >= 0 ) {
+	eventLookup => eventIndex; // set correct eventIndex
+	freqs[eventIndex][0] => second_i; // set correct time
+	<<< "start at time:", second_i, "event:", eventIndex >>>;
+}
+else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
 
 // -------------------------------------------------------
 
@@ -115,16 +153,6 @@ in.listenAll();
 10.0 => float distOffset; // set for each sensor to compensate for irregularities
 float dist;
 float amp;
-
-// master time vars
-0.5 => float timeLapse; // advance time by 0.5 seconds
-0.0 => float second_i; // current time value
-1.0 => float rate; // 1 = real time, higher vals to speed up for testing
-1080 => float pieceLength;
-0 => int eventIndex;
-float displayMinute;
-float displaySecond;
-5 => int countDown; // startup sound
 
 // FUNCTIONS ---------------------------------------------------
 
@@ -158,21 +186,30 @@ fun void freqChange( float newFreq ) {
 	//e.keyOn(); // turn on
 }
 
-fun void get_reading() {
+fun void get_osc() {
 	while( second_i < pieceLength ) {
 		// check for osc messages
 		in => now;
 		while( in.recv(msg) ) {
+			// start piece
+			if( msg.address == "/beginPiece" ) {
+				// assign part
+				msg.getInt(0) => int partNum;
+				allParts[partNum] @=> freqs; //freqs[][]; ??????
+				// set starting location
+				msg.getInt(1) => eventLookup;
+				spork ~ main();
+			};
 			// ultrasonic sensor distance
 			if( msg.address == "/distance" ) {
 				msg.getFloat(0) => dist;
-				//<<< "/distance", dist >>>;
+				<<< "/distance", dist >>>;
 				// turn on sound if value below thresh and get tone
 				if( dist < thresh && dist > 0.0 ) {
 					// <<< "sound on" >>>;
 					1 => soundOn;
 					normalize(dist, thresh, distOffset) => amp;
-					<<< amp >>>;
+					<<< "sensorAmp", amp >>>;
 					amp => e.target;
 					spork ~ e.keyOn();
 				}
@@ -182,70 +219,60 @@ fun void get_reading() {
 				}
 			}
 		}
-		<<< "NO OSC" >>>;
+		//<<< "NO OSC" >>>;
 	}
 }
 
-// FOR REHEARSAL -- START AT SECTION NUMBERS ------------------------
-// adjust starting position if command line argument present
-// user provides section number:
-[1.0, 2.0, 3.0, 4.0,  5.0,  6.0,  6.5, 7.0,  8.0,  9.0,  10.0, 11.0, 12.0] @=> float sectionLabels[];
-// corresponding event indexes:
-[1,   4,   7,   10,   13,   16,   19,  20,   23,   26,   29,   32,   35] @=> int sectionIndexes[];
-Std.atoi(me.arg(0)) => float userSection;
-if( userSection > 12 ) userSection / 10 => userSection; // stupid trick to get 6.5 from '65'
-<<< "USER ENTERED:", userSection >>>;
-// lookup sectionLabel
--1 => int eventLookup;
-1 => int searching;
-for( 0 => int i; i < sectionLabels.cap(); i++) {
-	if( userSection == sectionLabels[i] ) sectionIndexes[i] => eventLookup;
-	//<<< userSection, sectionLabels[i], userSection == sectionLabels[i] >>>;
-}
-<<< "EVENT LOOKUP:", eventLookup >>>;
+fun void main () {
+	
+	<<< "EVENT LOOKUP:", eventLookup >>>;
+	
+	if( eventLookup >= 0 ) {
+		eventLookup => eventIndex; // set correct eventIndex
+		freqs[eventIndex][0] => second_i; // set correct time
+		<<< "start at time:", second_i, "event:", eventIndex >>>;
+	}
+	else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
+	
 
-if( eventLookup >= 0 ) {
-	eventLookup => eventIndex; // set correct eventIndex
-	freqs[eventIndex][0] => second_i; // set correct time
-	<<< "start at time:", second_i, "event:", eventIndex >>>;
-}
-else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
-
-// STARTUP SOUND ---------------------------------------------------
-0.2 => s.gain;
-0.01 => e.time;
-for( 0 => int i; i < countDown; i++ ) {
-	220 => s.freq;
-	e.keyOn();
-	0.5::second => now;
-	e.keyOff();
-	0.5::second => now;
-}
-1.0 => s.gain;
-0.5 => e.time;
-
-// MAIN PROGRAM ---------------------------------------------------
-
-spork ~ get_reading(); // start sensor listener
-<<< "STARTING FORM" >>>;
-
-// loop for whole piece
-while( second_i < pieceLength ) {
-	//<<< eventIndex, freqs.cap() >>>;
-    second_i / 60 => displayMinute;
-    second_i % 60 => displaySecond;
-		if( displaySecond % 15 == 0) {
+	// STARTUP SOUND ---------------------------------------------------
+	0.2 => s.gain;
+	0.01 => e.time;
+	for( 0 => int i; i < countDown; i++ ) {
+		220 => s.freq;
+		e.keyOn();
+		0.5::second => now;
+		e.keyOff();
+		0.5::second => now;
+	}
+	1.0 => s.gain;
+	0.5 => e.time;
+	
+	// MAIN PROGRAM ---------------------------------------------------
+	
+	<<< "STARTING FORM" >>>;
+	
+	// loop for whole piece
+	while( second_i < pieceLength ) {
+		//<<< eventIndex, freqs.cap() >>>;
+		second_i / 60 => displayMinute;
+		second_i % 60 => displaySecond;
+		
+		if( second_i == freqs[eventIndex][0] ) { // check for matching timeVal
 			<<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
-			}
-
-    if( second_i == freqs[eventIndex][0] ) { // check for matching timeVal
-        // set new freq
-        freqs[eventIndex][1] => freq;
-		spork ~ freqChange(freq);
-        1 +=> eventIndex; // increment eventIndex, do this last
-    }
-
-    // increment time, do this last
-    timeLapse +=> second_i;
-    (timeLapse/rate)::second => now;
+			// set new freq
+			freqs[eventIndex][1] => freq;
+			spork ~ freqChange(freq);
+			1 +=> eventIndex; // increment eventIndex, do this last
+		}
+		
+		
+		// increment time, do this last
+		timeLapse +=> second_i;
+		(timeLapse/rate)::second => now;
+	}
 }
+
+
+// this will trigger everything when /beginPiece comes in from masterSpeakerCtl.ck
+spork ~ get_osc(); // start sensor listener

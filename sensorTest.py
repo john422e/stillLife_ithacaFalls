@@ -93,14 +93,5 @@ if __name__ == "__main__":
     # loop which gets and sends reading
     while True:
         reading = get_reading()
-        #print(reading)
-        if reading > 0:
-            # to smooth out readings
-            averaged = reading + last_reading / 2
-            send_reading(averaged)
-            #print(reading)
-            # set last_reading to this one
-            last_reading = reading
-
-        time.sleep(.25) # changed from 0.1
-        # sleep
+        send_reading(reading)
+        time.sleep(0.1)

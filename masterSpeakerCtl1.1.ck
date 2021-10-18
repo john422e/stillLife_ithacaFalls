@@ -171,7 +171,8 @@ Envelope stereoEnvs[files];
 Envelope shotgunEnvs[files];
 Gain stereoGains[files];
 Gain shotgunGains[files];
-Pan2 pans[files];
+Pan2 stereoPans[files];
+Pan2 shotgunPans[files];
 // can make these into arrays if i need to eq between speakers
 0.9 => float stereoGainLevel;
 0.7 => float shotgunGainLevel;
@@ -199,21 +200,30 @@ for( 0 => int i; i < 5; i++ ) {
 		// stereo
 		chanOffset + outputs[i] => channel;
 		//<<< "CHANNEL", channel >>>;
-		stereoBufs[i] => stereoEnvs[i] => stereoGains[i] => dac.chan(channel);
+		stereoBufs[i] => stereoEnvs[i] => stereoGains[i] => stereoPans[i];
+		stereoPans[i].left => dac.chan(channel);
+		stereoPans[i].right => dac.chan( (channel+1) );
 		stereoFilenames[i] => stereoBufs[i].read;
 		// shotgun
-		shotgunBufs[i] => shotgunEnvs[i] => shotgunGains[i] => dac.chan(channel);
+		shotgunBufs[i] => shotgunEnvs[i] => shotgunGains[i] => shotgunPans[i];
+		shotgunPans[i].left => dac.chan(channel);
+		shotgunPans[i].right => dac.chan( (channel+1) );
 		shotgunFilenames[i] => shotgunBufs[i].read;
-		0 => pans[i].pan; // center pan
+		0 => stereoPans[i].pan; // center pan
+		0 => shotgunPans[i].pan;
 	}
 	if( i == 4) {
 		// assign to all speakers
 		//<<< "FIELD 5" >>>;
-		stereoBufs[i] => stereoEnvs[i] => stereoGains[i];
-		stereoGains[i] => dac.chan(0);
-		stereoGains[i] => dac.chan(2);
-		stereoGains[i] => dac.chan(4);
-		stereoGains[i] => dac.chan(6);
+		stereoBufs[i] => stereoEnvs[i] => stereoGains[i] => stereoPans[i];
+		stereoPans[i].left => dac.chan(0);
+		stereoPans[i].right => dac.chan(1);
+		stereoPans[i].left => dac.chan(2);
+		stereoPans[i].right => dac.chan(3);
+		stereoPans[i].left => dac.chan(4);
+		stereoPans[i].right => dac.chan(5);
+		stereoPans[i].left => dac.chan(6);
+		stereoPans[i].right => dac.chan(7);
 		stereoFilenames[i] => stereoBufs[i].read;
 	}
 }
@@ -224,6 +234,8 @@ float spkrState;
 int pulseChoice;
 int bufChoice;
 float pulseDuration;
+int partB;
+int partC;
 
 // FUNCTIONS ---------------------------------------------------
 fun void fadeIn( Envelope e, float preFade, float fadeTime ) {
@@ -254,6 +266,20 @@ fun void pulseEnv( Envelope e, float duration ) {
 	}
 }
 
+fun int randChoice( int aList[] ) {
+	// USE THIS FOR PART B AND C PULSE SELECTION
+	// select for non-zero values and chosen value to 0
+	1 => int searching; // boolean
+	int i;
+	while( searching == 1) {
+		Math.random2(0, aList.size()-1) => i;
+		if( aList[i] != 0 ) 0 => searching;
+	}
+	aList[i] => int choice;
+	0 => aList[i]; // set to zero
+	return choice;
+}
+
 // FOR REHEARSAL -- START AT SECTION NUMBERS ------------------------
 // adjust starting position if command line argument present
 // user provides section number:
@@ -273,15 +299,39 @@ for( 0 => int i; i < sectionLabels.cap(); i++) {
 <<< "EVENT LOOKUP:", eventLookup >>>;
 
 if( eventLookup >= 0 ) {
-	<<< "FIX" >>>;
-	//eventLookup => ; // set correct eventIndex
-	//freqs[eventIndex][0] => second_i; // set correct time
-	//<<< "start at time:", second_i, "event:", eventIndex >>>;
+	// CHECK IF THIS WORKS!!!
+	<<< "DID I WORK?" >>>;
+	eventLookup => eventIndex; // set correct eventIndex
+	freqs[eventIndex][0] => second_i; // set correct time
+	<<< "start at time:", second_i, "event:", eventIndex >>>;
 }
 else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
 
+// host names and ports
+[
+"pione.local",
+"pitwo.local",
+"pithree.local",
+"pifour.local"
+] @=> string HOSTNAMES;
+4 => NUM_PIS;
+10001 => int OUT_PORT;
+"/beginPiece" => string ADDRESS
+// osc out to pis
+OscOut out[NUM_PIS];
+
+
+
 <<< "STARTING FORM" >>>;
-//5::second => now; // startup
+// send /beginPiece to pis
+for(0 => int i; i < NUM_PIS; i++) {
+	out[i].dest(HOSTNAMES[i], OUT_PORT);
+	out[i].start(ADDRESS);
+	out[i].add(i);
+	out[i].add(eventLookup);
+	// "/beginPiece <0,1,2,3> eventLookup"
+}
+5::second => now; // startup
 // start with field 5 on
 stereoEnvs[4].keyOn();
 
@@ -303,6 +353,7 @@ while( second_i < pieceLength ) {
 
 		// check for events in all 4 spkrs
 		for( 0 => int i; i < eventIndexes.cap(); i++ ) {
+			// 0, 1, 2, 3
 			eventIndexes[i] => checkIndex;
 			if( second_i == allEvents[i][checkIndex][0] ) {
 				<<< "SPEAKER STATE CHANGE" >>>;
@@ -317,11 +368,19 @@ while( second_i < pieceLength ) {
 					// stereo steady
 					shotgunEnvs[i].keyOff(); // all shotgun bufs off
 					stereoEnvs[i].keyOn(); // all stereo bufs on
+					if( i == 0 ) {
+						// happens only at numbered sections (1-12)
+						// pick parts to be on for B and C so that something is always on
+						Math.random2(0, 3) => partB;
+						Math.random2(0, 3) => partC;
+					}
 				}
 				if( spkrState == 1.5 ) {
 					// stereo or shotgun, pulsing or steady
 					Math.random2(0, 1) => bufChoice; // 0 = stereo, 1 = shotgun
 					Math.random2(0, 2) => pulseChoice; // 0 = off, 1 = on, 2 = pulse
+					// check for partB (guaranteed ONs)
+					if( i == partB ) Math.random2(1, 2) => pulseChoice;
 					if( pulseChoice == 0 ) stereoEnvs[i].keyOff();
 					if( pulseChoice == 1 ) {
 						if( bufChoice == 1 ) {
@@ -342,6 +401,8 @@ while( second_i < pieceLength ) {
 					// shotgun, pulsing or steady
 					stereoEnvs[i].keyOff(); // stereo off at this point no matter what
 					Math.random2(0, 2) => pulseChoice; // 0 = off, 1 = on, 2 = pulse
+					// check for partC (guaranteed ONs)
+					if( i == partC ) Math.random2(1, 2) => pulseChoice;
 					if( pulseChoice == 0 ) shotgunEnvs[i].keyOff();
 					if( pulseChoice == 1 ) shotgunEnvs[i].keyOn();
 					if( pulseChoice == 2 ) {

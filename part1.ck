@@ -234,9 +234,9 @@ while( second_i < pieceLength ) {
 	//<<< eventIndex, freqs.cap() >>>;
     second_i / 60 => displayMinute;
     second_i % 60 => displaySecond;
-    <<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
-
+    
     if( second_i == freqs[eventIndex][0] ) { // check for matching timeVal
+		<<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
         // set new freq
         freqs[eventIndex][1] => freq;
 		spork ~ freqChange(freq);       
