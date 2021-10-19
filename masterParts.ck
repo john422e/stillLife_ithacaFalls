@@ -132,6 +132,8 @@ else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
 // sound chain
 SinOsc s => Envelope e => Gain g => dac;
 
+0 => s.freq; // initialize
+
 // osc
 OscIn in;
 OscMsg msg;
