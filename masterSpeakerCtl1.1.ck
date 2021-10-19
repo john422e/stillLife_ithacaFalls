@@ -94,7 +94,7 @@ structure: stereo to shotgun each time
 [255.0, 1.0], [305.0, 1.5], [317.5, 2.0], 	// 4
 [330.0, 1.0], [380.0, 1.5], [392.5, 2.0], 	// 5
 [405.0, 1.0], [455.0, 1.5], [467.5, 2.0],		// 6
-[480.0, 1.0],                								// middle
+[480.0, 0.0],                								// middle
 [600.0, 1.0], [637.5, 1.5], [650.0, 2.0],  	// 7
 [675.0, 1.0], [700.0, 1.5], [725.0, 2.0],  	// 8
 [750.0, 1.0], [787.5, 1.5], [800.0, 2.0], 	// 9
@@ -174,8 +174,8 @@ Gain shotgunGains[files];
 Pan2 stereoPans[files];
 Pan2 shotgunPans[files];
 // can make these into arrays if i need to eq between speakers
-0.9 => float stereoGainLevel;
-0.7 => float shotgunGainLevel;
+0.2 => float stereoGainLevel;
+0.2 => float shotgunGainLevel;
 
 // set outputs
 0 => int chanOffset;
@@ -189,7 +189,7 @@ for( 0 => int i; i < stereoGains.cap(); i++ ) {
 
 
 int channel;
-/*
+
 // setup soundchains
 // stereo
 for( 0 => int i; i < 5; i++ ) {
@@ -227,7 +227,7 @@ for( 0 => int i; i < 5; i++ ) {
 		stereoFilenames[i] => stereoBufs[i].read;
 	}
 }
-*/
+
 
 // temp vars
 int eventIndex;
@@ -324,37 +324,52 @@ else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
 OscOut out[NUM_PIS];
 
 
+// check for testing arg (must provide 2 args at start (int 0 + "testing" string))
+Std.atoi(me.arg(1)) => int testing;
+<<< "TESTING", testing >>>;
+//<<< "INPUT", Std.atoi( me.arg(0)), Std.atoi( me.arg(1) ) >>>;
 
-<<< "STARTING FORM" >>>;
-// send /beginPiece to pis
-for(0 => int i; i < NUM_PIS; i++) {
-	out[i].dest(HOSTNAMES[i], OUT_PORT);
-	out[i].start(ADDRESS);
-	out[i].add(i);
-	out[i].add(eventLookup);
-	// "/beginPiece <0,1,2,3> eventLookup"
+if( testing != 1 ) {
+	<<< "STARTING FORM" >>>;
+	// send /beginPiece to pis
+	for(0 => int i; i < NUM_PIS; i++) {
+		out[i].dest(HOSTNAMES[i], OUT_PORT);
+		out[i].start(ADDRESS);
+		out[i].add(i);
+		out[i].add(eventLookup);
+		out[i].send();
+		// "/beginPiece <0,1,2,3> eventLookup"
+	}
+	5::second => now; // startup
 }
-5::second => now; // startup
 
-/*
+
 // start with field 5 on
-stereoEnvs[4].keyOn();
+if( eventLookup <= 0 ) stereoEnvs[4].keyOn();
+
+//if( testing == 1 ) 1::second => now; // TURN OFF FOR PERFORMANCE
 
 // loop for whole piece
 while( second_i < pieceLength ) {
-	//<<< eventIndex, freqs.cap() >>>;
+		//<<< eventIndex, freqs.cap() >>>;
     second_i / 60 => displayMinute;
     second_i % 60 => displaySecond;
-		<<< eventIndexes[0] >>>;
+		//<<< eventIndexes[0] >>>;
 		if( displaySecond % 15 == 0) {
 			<<< "TIME:", Math.floor(displayMinute), displaySecond >>>;
 			}
-		// turn off field 5 at 30 seconds
-		if( second_i == 30.0 ) stereoEnvs[4].keyOff();
+
+
+		// GLOBAL HARD CODED TIME EVENTS
+		// start turning off field 5 at 10 seconds
+		if( second_i == 10.0 ) {
+			<<< "fade out" >>>;
+			spork ~ fadeOut(stereoEnvs[4], 0, 20);
+		}
 		// turn on field 5 at 17:30
-		if( second_i == 1050.0 ) stereoEnvs[4].keyOn();
+		if( second_i == 1050.0 ) spork ~ fadeIn(stereoEnvs[4], 10.0, 18.0);
 		// turn off field 5 at 18:00 (end of piece)
-		if( second_i == 1080.0 ) stereoEnvs[4].keyOff();
+		if( second_i == 1080.0 ) spork ~ fadeOut(stereoEnvs[4], 1.0, 2.0);
 
 		// check for events in all 4 spkrs
 		for( 0 => int i; i < eventIndexes.cap(); i++ ) {
@@ -372,6 +387,7 @@ while( second_i < pieceLength ) {
 				if( spkrState == 1.0 ) {
 					// stereo steady
 					shotgunEnvs[i].keyOff(); // all shotgun bufs off
+					stereoGainLevel * 0.7 => stereoGains[i].gain;
 					stereoEnvs[i].keyOn(); // all stereo bufs on
 					if( i == 0 ) {
 						// happens only at numbered sections (1-12)
@@ -382,6 +398,7 @@ while( second_i < pieceLength ) {
 				}
 				if( spkrState == 1.5 ) {
 					// stereo or shotgun, pulsing or steady
+					stereoGainLevel => stereoGains[i].gain;
 					Math.random2(0, 1) => bufChoice; // 0 = stereo, 1 = shotgun
 					Math.random2(0, 2) => pulseChoice; // 0 = off, 1 = on, 2 = pulse
 					// check for partB (guaranteed ONs)
@@ -411,7 +428,7 @@ while( second_i < pieceLength ) {
 					if( pulseChoice == 0 ) shotgunEnvs[i].keyOff();
 					if( pulseChoice == 1 ) shotgunEnvs[i].keyOn();
 					if( pulseChoice == 2 ) {
-						allEvents[i][checkIndex+1][0] - second_i => pulseDuration;
+						allEvents[i][checkIndex+1][0] - second_i => pulseDuration; // next event time - current time for pulseDuration
 						spork ~ pulseEnv( shotgunEnvs[i], pulseDuration);
 					}
 				}
@@ -422,9 +439,10 @@ while( second_i < pieceLength ) {
 		}
     // increment time, do this last
     timeLapse +=> second_i;
+		if( second_i % 2 == 0 ) <<< "TICK 2", second_i >>>;
     (timeLapse/rate)::second => now;
 }
-*/
+
 
 
 

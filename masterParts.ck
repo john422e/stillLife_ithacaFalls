@@ -130,7 +130,7 @@ else <<< "NOT A VALID SECTION LABEL, STARTING FROM BEGINNING" >>>;
 // -------------------------------------------------------
 
 // sound chain
-SinOsc s => Envelope e => LPF f => Gain g => dac;
+SinOsc s => Envelope e => Gain g => dac;
 
 // osc
 OscIn in;
@@ -143,8 +143,6 @@ in.listenAll();
 0.0 => float freq;
 80.0 => float spkrThresh;
 2 => int octaveTrans; // 1 to leave alone, 2 to move up an octave
-500 => f.freq;
-0.4 => f.Q;
 0.5 => e.time;
 0 => int soundOn;
 
@@ -277,4 +275,8 @@ fun void main () {
 
 // this will trigger everything when /beginPiece comes in from masterSpeakerCtl.ck
 spork ~ get_osc(); // start sensor listener
-1080::second => now;
+
+// run forever
+while( true ) {
+	1::second => now;
+}
