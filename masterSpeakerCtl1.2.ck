@@ -174,8 +174,8 @@ Gain shotgunGains[files];
 Pan2 stereoPans[files];
 Pan2 shotgunPans[files];
 // can make these into arrays if i need to eq between speakers
-0.2 => float stereoGainLevel; // 0.2
-0.2 => float shotgunGainLevel; // 0.2
+0.2 => float stereoGainLevel;
+0.2 => float shotgunGainLevel;
 
 // set outputs
 0 => int chanOffset;
@@ -183,11 +183,9 @@ Pan2 shotgunPans[files];
 // set gains
 for( 0 => int i; i < stereoGains.cap(); i++ ) {
 	stereoGainLevel => stereoGains[i].gain;
-	//stereoGainLevel => stereoBufs[i].gain;
 	shotgunGainLevel => shotgunGains[i].gain;
 }
 1.0 => stereoGains[4].gain;
-//1.0 => stereoBufs[4].gain;
 
 
 int channel;
@@ -230,6 +228,8 @@ for( 0 => int i; i < 5; i++ ) {
 	}
 }
 
+stereoBufs[0].samples()/2 => int midpoint;
+<<< "MIDPOINT:", midpoint >>>;
 
 // temp vars
 int eventIndex;
@@ -238,8 +238,13 @@ float spkrState;
 int pulseChoice;
 int bufChoice;
 float pulseDuration;
-int partB;
-int partC;
+int partBsteady;
+int partBpulse;
+int partCsteady;
+int partCpulse;
+int thin;
+int partBoff;
+int partCoff;
 
 // FUNCTIONS ---------------------------------------------------
 fun void fadeIn( Envelope e, float preFade, float fadeTime ) {
@@ -259,7 +264,7 @@ fun void fadeOut( Envelope e, float preFade, float fadeTime ) {
 }
 
 fun void pulseEnv( Envelope e, float duration ) {
-	Math.random2(500, 4000) => int pulseMS;
+	Math.random2(300, 4000) => int pulseMS; // trying lower minimum here (was 500)
 	pulseMS / 1000 => float pulseSecs;
 	(duration / pulseSecs) $ int => int totalPulses;
 	for( 0 => int i; i < totalPulses; i++ ) {
@@ -365,10 +370,17 @@ while( second_i < pieceLength ) {
 		// GLOBAL HARD CODED TIME EVENTS
 		// start turning off field 5 at 10 seconds
 		if( second_i == 10.0 ) spork ~ fadeOut(stereoEnvs[4], 0, 20);
+		// set bufs back 2 minutes
+		if( second_i == 600) {
+			for( 0 => int i; i < 5; i++ ) {
+				midpoint => stereoBufs[i].pos;
+				midpoint => shotgunBufs[i].pos;
+			}
+		}
 		// turn on field 5 at 17:30
 		if( second_i == 1050.0 ) spork ~ fadeIn(stereoEnvs[4], 10.0, 18.0);
 		// turn off field 5 at 18:00 (end of piece)
-		if( second_i == 1080.0 ) spork ~ fadeOut(stereoEnvs[4], 1.0, 2.0);
+		if( second_i == 1079.0 ) spork ~ fadeOut(stereoEnvs[4], 0.5, 0.5);
 
 		// check for events in all 4 spkrs
 		for( 0 => int i; i < eventIndexes.cap(); i++ ) {
@@ -391,8 +403,32 @@ while( second_i < pieceLength ) {
 					if( i == 0 ) {
 						// happens only at numbered sections (1-12)
 						// pick parts to be on for B and C so that something is always on
-						Math.random2(0, 3) => partB;
-						Math.random2(0, 3) => partC;
+						Math.random2(0, 3) => partBsteady;
+						Math.random2(0, 3) => partBpulse;
+						Math.random2(0, 3) => partCsteady;
+						Math.random2(0, 3) => partCpulse;
+						// pick random part to be on (1), random part to be pulse (2) --separate by 2
+						if( partBsteady == partBpulse ) {
+							partBpulse + 2 => partBpulse;
+							if( partBpulse > 3 ) partBpulse - 4 => partBpulse;
+						}
+						// 50 % chance to automatically silence part in between on and pulse (make max higher to increase odds)
+						Math.random2(0, 1) => thin;
+						-1 => partBoff; // reset partBoff first
+						if( thin > 0 ) {
+							partBsteady + 1 => partBoff;
+							if( partBoff > 3 ) partBoff - 4 => partBoff;
+						}
+						if( partCsteady == partCpulse ) {
+							partCpulse + 2 => partCpulse;
+							if( partCpulse > 3 ) partCpulse - 4 => partCpulse;
+						}
+						Math.random2(0, 1) => thin;
+						-1 => partCoff; // reset partCoff first
+						if( thin > 0 ) {
+							partCsteady + 1 => partCoff;
+							if( partCoff > 3 ) partCoff - 4 => partBoff;
+						}
 					}
 				}
 				if( spkrState == 1.5 ) {
@@ -401,7 +437,9 @@ while( second_i < pieceLength ) {
 					Math.random2(0, 1) => bufChoice; // 0 = stereo, 1 = shotgun
 					Math.random2(0, 2) => pulseChoice; // 0 = off, 1 = on, 2 = pulse
 					// check for partB (guaranteed ONs)
-					if( i == partB ) Math.random2(1, 2) => pulseChoice;
+					if( i == partBoff ) 0 => pulseChoice;
+					if( i == partBsteady ) 1 => pulseChoice;
+					if( i == partBpulse ) 2 => pulseChoice;
 					if( pulseChoice == 0 ) stereoEnvs[i].keyOff();
 					if( pulseChoice == 1 ) {
 						if( bufChoice == 1 ) {
@@ -423,7 +461,10 @@ while( second_i < pieceLength ) {
 					stereoEnvs[i].keyOff(); // stereo off at this point no matter what
 					Math.random2(0, 2) => pulseChoice; // 0 = off, 1 = on, 2 = pulse
 					// check for partC (guaranteed ONs)
-					if( i == partC ) Math.random2(1, 2) => pulseChoice;
+					// check for partB (guaranteed ONs)
+					if( i == partCoff ) 0 => pulseChoice;
+					if( i == partCsteady ) 1 => pulseChoice;
+					if( i == partCpulse ) 2 => pulseChoice;
 					if( pulseChoice == 0 ) shotgunEnvs[i].keyOff();
 					if( pulseChoice == 1 ) shotgunEnvs[i].keyOn();
 					if( pulseChoice == 2 ) {
